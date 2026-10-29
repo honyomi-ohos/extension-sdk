@@ -16,6 +16,6 @@
     "useDefineForClassFields": true,
     "types": ["node"]
   },
-  "include": ["globals.d.ts", "src/*/*/*.ts", "src/*/*/test/**/*.ts"],
+  "include": ["globals.d.ts", "src/**/*.ts", "src/**/test/**/*.ts"],
   "exclude": ["dist", "node_modules"]
 }
