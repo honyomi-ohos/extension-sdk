@@ -1,0 +1,44 @@
+{
+  "name": "@honyomi/plugin-tools",
+  "version": "0.1.0",
+  "description": "Honyomi 插件作者工具。只安装本包即可构建、打包、测试、lint，并使用 SDK 与调试 skill。",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "./src/cli.ts",
+  "types": "./src/cli.ts",
+  "exports": {
+    ".": "./src/cli.ts",
+    "./package.json": "./package.json",
+    "./sdk": "./src/public-sdk.ts",
+    "./sdk/repo": "./src/public-repo.ts",
+    "./test": "./src/public-test.ts",
+    "./register": "./register.mjs",
+    "./skill": "./skills/honyomi-plugin-debug/SKILL.md"
+  },
+  "bin": {
+    "honyomi-plugin": "./bin/honyomi-plugin.mjs"
+  },
+  "files": [
+    "src",
+    "bin",
+    "register.mjs",
+    "scripts",
+    "skills",
+    "template",
+    "README.md"
+  ],
+  "scripts": {
+    "postinstall": "node ./scripts/link-packages.mjs"
+  },
+  "dependencies": {
+    "@honyomi/plugin-runtime": "file:../runtime",
+    "@honyomi/plugin-sdk": "file:../sdk",
+    "@honyomi/plugin-test": "file:../testing",
+    "@types/node": "^26.6.5",
+    "esbuild": "^0.28.2",
+    "typescript": "^7.0.2"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

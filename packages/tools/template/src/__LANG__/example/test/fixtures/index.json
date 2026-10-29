@@ -1,0 +1,8 @@
+{
+  "https://example.com/list?page=1": {
+    "file": "list.html"
+  },
+  "/^https:\\/\\/example\\.com\\/search\\?/": {
+    "file": "list.html"
+  }
+}

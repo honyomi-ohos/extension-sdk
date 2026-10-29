@@ -1,0 +1,16 @@
+{
+  "name": "honyomi-catalog",
+  "private": true,
+  "type": "module",
+  "description": "__NAME__",
+  "scripts": {
+    "build": "honyomi-plugin build",
+    "test": "honyomi-plugin test",
+    "lint": "honyomi-plugin lint",
+    "typecheck": "honyomi-plugin typecheck",
+    "publish": "honyomi-plugin publish"
+  },
+  "devDependencies": {
+    "@honyomi/plugin-tools": "__TOOLS__"
+  }
+}

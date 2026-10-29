@@ -1,0 +1,13 @@
+{
+  "key": "00000000-0000-4000-8000-0000000000e2",
+  "name": "Toy E2E",
+  "lang": "all",
+  "version": "1.0.0",
+  "versionCode": 1,
+  "baseUrl": "https://e2e.test",
+  "nsfw": false,
+  "supportsLatest": true,
+  "minAppVersion": 1,
+  "dslVersion": 1,
+  "contentType": "manga"
+}

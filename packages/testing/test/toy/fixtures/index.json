@@ -1,0 +1,14 @@
+{
+  "https://toy.test/list?page=1": {
+    "file": "list.html"
+  },
+  "https://toy.test/list?page=2": {
+    "file": "list.html"
+  },
+  "/^https:\\/\\/toy\\.test\\/search\\?/": {
+    "file": "list.html"
+  },
+  "/^https:\\/\\/toy\\.test\\/m\\/[0-9]+$/": {
+    "file": "detail.html"
+  }
+}

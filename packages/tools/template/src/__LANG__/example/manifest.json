@@ -1,0 +1,9 @@
+{
+  "key": "__KEY__",
+  "name": "__NAME__",
+  "lang": "__LANG__",
+  "version": "1.0.0",
+  "versionCode": 1,
+  "contentType": "manga",
+  "baseUrl": "__BASE__"
+}

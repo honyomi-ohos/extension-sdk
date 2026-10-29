@@ -1,0 +1,22 @@
+{
+  "name": "@honyomi/extension-sdk",
+  "private": true,
+  "license": "Apache-2.0",
+  "description": "Honyomi 插件作者工具链。对外只发布并让用户依赖 @honyomi/plugin-tools。",
+  "workspaces": [
+    "packages/sdk",
+    "packages/testing",
+    "packages/runtime",
+    "packages/tools"
+  ],
+  "scripts": {
+    "build": "npm run build -w @honyomi/plugin-runtime",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "npm run build -w @honyomi/plugin-runtime && node --import ./packages/tools/register.mjs --test \"packages/sdk/test/*.test.ts\" \"packages/testing/test/*.test.ts\" \"packages/tools/test/*.test.ts\" \"packages/runtime/test/*.test.ts\"",
+    "publish:npm": "node scripts/publish.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "typescript": "^7.0.2"
+  }
+}
