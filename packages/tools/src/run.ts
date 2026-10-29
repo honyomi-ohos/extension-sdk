@@ -180,16 +180,25 @@ function oxlintConfig(): string {
   return path.resolve(import.meta.dirname, '..', 'oxlintrc.jsonc');
 }
 
+export interface LintOptions {
+  fix?: boolean;
+}
+
 // 插件 TypeScript / JavaScript。规则在 oxlintrc.jsonc：沙箱里不存在的全局和 Node 内建，
 // 以及 TypeScript 正确性。测试文件可以 import node:。
-export function lintSources(root: string): void {
-  const result = spawnSync(process.execPath, [
+// fix 只传 oxlint 的安全修复（--fix），不传会删掉带副作用语句的 --fix-dangerously。
+export function lintSources(root: string, options?: LintOptions): void {
+  const args = [
     oxlintBin(),
     '--config', oxlintConfig(),
     '--disable-nested-config',
     '--no-error-on-unmatched-pattern',
-    root,
-  ], {
+  ];
+  if (options?.fix === true) {
+    args.push('--fix');
+  }
+  args.push(root);
+  const result = spawnSync(process.execPath, args, {
     cwd: root,
     stdio: 'inherit',
   });
@@ -222,14 +231,30 @@ function typecheck(root: string): void {
   console.log('tsc: ok');
 }
 
-export function lint(project: Project): void {
-  if (project.kind === 'catalog') {
-    check(project.root);
-  } else {
-    checkStandalone(project.root);
+function stage(run: () => void): string | undefined {
+  try {
+    run();
+    return undefined;
+  } catch (err) {
+    return err instanceof Error ? err.message : String(err);
   }
-  lintSources(project.root);
-  typecheck(project.root);
+}
+
+export function lint(project: Project, options?: LintOptions): void {
+  const failures = [
+    stage(() => {
+      if (project.kind === 'catalog') {
+        check(project.root);
+      } else {
+        checkStandalone(project.root);
+      }
+    }),
+    stage(() => lintSources(project.root, options)),
+    stage(() => typecheck(project.root)),
+  ].filter((message): message is string => message !== undefined);
+  if (failures.length > 0) {
+    throw new Error(failures.join('\n'));
+  }
   console.log('lint: ok');
 }
 

@@ -40,7 +40,7 @@ import { createFixtureFetch, loadExtension, assertWorkPage } from '@honyomi/plug
 | `honyomi-plugin build [key...]` | 编译插件。catalog 无参数时构建全部 |
 | `honyomi-plugin test [glob...]` | 构建运行时 shim 和插件，再跑 `node:test` |
 | `honyomi-plugin e2e [replay\|record\|live] [glob...]` | 设置 `HONYOMI_E2E` 后跑 `*.e2e.test.ts` |
-| `honyomi-plugin lint` | manifest、产物是否陈旧、oxlint，以及 `tsc` |
+| `honyomi-plugin lint [--fix]` | manifest、产物是否陈旧、oxlint，以及 `tsc`。`--fix` 应用 oxlint 的安全自动修复 |
 | `honyomi-plugin typecheck` | 只运行 `tsc` |
 | `honyomi-plugin check` | 只做 manifest 和产物陈旧检测 |
 | `honyomi-plugin publish [--release <url>]` | 构建并写出 `dist/repo/`（`.honyomiplug`、图标、`index.bin`）。`--release` 把这三类文件都写成 GitHub Release 附件地址 |
@@ -49,7 +49,7 @@ import { createFixtureFetch, loadExtension, assertWorkPage } from '@honyomi/plug
 | `honyomi-plugin skill path` | 打印随包分发的调试 skill 目录 |
 | `honyomi-plugin skill install` | 复制 skill 到 `.cursor/skills` 与 `.deveco/skills` |
 
-`lint` 里的 oxlint 检查插件源码。插件文件不能使用沙箱里没有的全局（`fetch`、`window`、`document`、`process` 等），也不能 `import` Node 内建模块。`test/` 里可以 `import node:`。
+`lint` 会把 manifest、oxlint 和 `tsc` 都跑完，前面的失败不会跳过后面的检查。oxlint 报告未使用变量等代码问题，并禁止插件文件使用沙箱里没有的全局（`fetch`、`window`、`document`、`process` 等）或 `import` Node 内建模块。`test/` 里可以 `import node:`。
 
 TypeScript 由包内的 esbuild loader 直接运行，插件源码可以使用 enum 等语法。
 

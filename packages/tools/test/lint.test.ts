@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import * as path from 'node:path';
-import { lintSources } from '../src/run.ts';
+import { lint, lintSources } from '../src/run.ts';
 
 function withDir(run: (dir: string) => void): void {
   const dir = mkdtempSync(path.join(tmpdir(), 'honyomi-lint-'));
@@ -46,6 +46,40 @@ test('plugin source cannot call fetch, reach through globalThis, or import node 
   withDir((dir) => {
     writeFileSync(path.join(dir, 'main.ts'), 'import fs from \'node:fs\';\nfs.readFileSync(\'x\');\n');
     assert.throws(() => lintSources(dir), /oxlint 未通过/);
+  });
+});
+
+test('lint still reports oxlint when the manifest check fails', () => {
+  withDir((dir) => {
+    writeFileSync(path.join(dir, 'package.json'), JSON.stringify({ name: 'honyomi-catalog' }));
+    mkdirSync(path.join(dir, 'demo'));
+    writeFileSync(path.join(dir, 'demo', 'manifest.json'), '{}');
+    writeFileSync(path.join(dir, 'demo', 'main.ts'), 'const unused = 1;\nfetch(\'https://example.com\');\n');
+    assert.throws(
+      () => lint({ kind: 'catalog', root: dir }),
+      (err: unknown) => {
+        assert.ok(err instanceof Error);
+        assert.match(err.message, /check 发现/);
+        assert.match(err.message, /oxlint 未通过/);
+        return true;
+      },
+    );
+  });
+});
+
+test('lintSources --fix applies oxlint safe fixes', () => {
+  withDir((dir) => {
+    const file = path.join(dir, 'main.ts');
+    writeFileSync(file, [
+      'const opts = { headers: { a: \'1\' } };',
+      'const headers = { ...(opts.headers ?? {}) };',
+      'console.log(headers);',
+      '',
+    ].join('\n'));
+    lintSources(dir, { fix: true });
+    const text = readFileSync(file, 'utf8');
+    assert.equal(text.includes('??'), false);
+    assert.match(text, /\.\.\.opts\.headers/);
   });
 });
 

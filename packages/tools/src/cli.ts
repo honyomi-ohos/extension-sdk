@@ -23,7 +23,8 @@ function usage(): void {
   console.log('  build [key...]   构建插件到 dist/<key>/main.js（无参数 = 全部）');
   console.log('  test [glob...]   构建后运行测试（缺省 */test/*.test.ts）');
   console.log('  e2e [mode]       replay | record | live，缺省 replay');
-  console.log('  lint             manifest、产物陈旧检测、oxlint，以及 tsc');
+  console.log('  lint [--fix]     manifest、产物陈旧检测、oxlint，以及 tsc');
+  console.log('                   --fix  应用 oxlint 的安全自动修复');
   console.log('  typecheck        只运行 tsc');
   console.log('  check            manifest 校验 + 构建产物陈旧检测');
   console.log('  publish          构建并发布仓库到 dist/repo/');
@@ -103,6 +104,18 @@ function parseInitArgs(args: string[]): { dir: string; name?: string; lang: stri
   return { dir: path.resolve(dir), name, lang };
 }
 
+function parseLintArgs(args: string[]): { fix: boolean } {
+  let fix = false;
+  for (const arg of args) {
+    if (arg === '--fix') {
+      fix = true;
+      continue;
+    }
+    throw new Error(`未知参数：${arg}`);
+  }
+  return { fix };
+}
+
 function parsePublishArgs(args: string[]): { releaseBase?: string } {
   let releaseBase: string | undefined;
   for (let i = 0; i < args.length; i++) {
@@ -166,7 +179,7 @@ async function main(): Promise<void> {
     return;
   }
   if (cmd === 'lint') {
-    lint(project);
+    lint(project, parseLintArgs(args));
     return;
   }
   if (cmd === 'typecheck') {
