@@ -1,0 +1,28 @@
+{
+  "plugins": ["typescript", "unicorn", "oxc"],
+  "env": {
+    "builtin": true,
+    "node": true
+  },
+  "ignorePatterns": ["**/dist/**", "**/node_modules/**", "packages/tools/template/**"],
+  "rules": {
+    "typescript/ban-ts-comment": "error",
+    "typescript/no-extra-non-null-assertion": "error",
+    "typescript/no-non-null-asserted-optional-chain": "error",
+    "typescript/no-wrapper-object-types": "error",
+    "typescript/no-unsafe-function-type": "error",
+    "typescript/no-duplicate-enum-values": "error",
+    "typescript/no-misused-new": "error",
+    "typescript/no-this-alias": "error",
+    "typescript/no-unnecessary-type-constraint": "error",
+    "typescript/no-import-type-side-effects": "error",
+    "typescript/no-array-delete": "error",
+    "typescript/no-confusing-non-null-assertion": "error",
+    "typescript/prefer-as-const": "error",
+    "typescript/adjacent-overload-signatures": "error",
+    "typescript/no-empty-object-type": "error"
+  },
+  "options": {
+    "denyWarnings": true
+  }
+}

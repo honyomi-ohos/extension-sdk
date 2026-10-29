@@ -66,12 +66,12 @@
       };
       try {
         out.fnProcess = Function('return typeof process')();
-      } catch (e) {
+      } catch {
         out.fnProcess = 'threw';
       }
       try {
         out.ctorProcess = ({}).constructor.constructor('return typeof process')();
-      } catch (e) {
+      } catch {
         out.ctorProcess = 'threw';
       }
       return out;

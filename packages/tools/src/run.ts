@@ -172,6 +172,36 @@ function checkStandalone(dir: string): void {
   }
 }
 
+function oxlintBin(): string {
+  return path.join(path.dirname(require.resolve('oxlint/package.json')), 'bin', 'oxlint');
+}
+
+function oxlintConfig(): string {
+  return path.resolve(import.meta.dirname, '..', 'oxlintrc.jsonc');
+}
+
+// 插件 TypeScript / JavaScript。规则在 oxlintrc.jsonc：沙箱里不存在的全局和 Node 内建，
+// 以及 TypeScript 正确性。测试文件可以 import node:。
+export function lintSources(root: string): void {
+  const result = spawnSync(process.execPath, [
+    oxlintBin(),
+    '--config', oxlintConfig(),
+    '--disable-nested-config',
+    '--no-error-on-unmatched-pattern',
+    root,
+  ], {
+    cwd: root,
+    stdio: 'inherit',
+  });
+  if (result.error) {
+    throw result.error;
+  }
+  if ((result.status ?? 1) !== 0) {
+    throw new Error('oxlint 未通过');
+  }
+  console.log('oxlint: ok');
+}
+
 function typecheck(root: string): void {
   const tsconfig = path.join(root, 'tsconfig.json');
   if (!existsSync(tsconfig)) {
@@ -198,6 +228,7 @@ export function lint(project: Project): void {
   } else {
     checkStandalone(project.root);
   }
+  lintSources(project.root);
   typecheck(project.root);
   console.log('lint: ok');
 }

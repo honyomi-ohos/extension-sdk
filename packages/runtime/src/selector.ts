@@ -1,7 +1,7 @@
 // Jsoup-ish 节点包装层：nativeSelector（lexbor 桥）JSON → jsoup 风格 Element。
 // 自原手写 shim 逐段移植，语义 1:1（含 jsoup 伪类 ：contains/:containsOwn/:eq、
 // 组合器 + > ~、src 懒加载回退属性链、canonical link 位置提升）。
-import type { HostGlobal, RawHit, RawSummary } from './host';
+import type { RawHit, RawSummary } from './host';
 import { g } from './host';
 
 export interface WrappedNode {

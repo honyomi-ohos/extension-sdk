@@ -1,0 +1,101 @@
+{
+  // honyomi-plugin lint 用的 TypeScript 规则。
+  // 插件源码跑在 JSVM 沙箱里，可见全局只有标准内建和 $ / fetchBytes 等公开桥。
+  // 关掉的规则是官方 catalog 里已经大量存在的写法，不在这次把历史代码算成失败。
+  "plugins": ["typescript", "unicorn", "oxc", "import"],
+  "env": {
+    "builtin": true
+  },
+  "globals": {
+    "$": "readonly",
+    "fetchBytes": "readonly",
+    "querySelectorAll": "readonly",
+    "console": "readonly",
+    "global": "writable",
+    "module": "readonly",
+    "exports": "writable",
+    "btoa": "readonly",
+    "atob": "readonly",
+    "TextEncoder": "readonly",
+    "TextDecoder": "readonly",
+    "URL": "readonly",
+    "URLSearchParams": "readonly",
+    "crypto": "readonly"
+  },
+  "ignorePatterns": ["**/dist/**", "**/node_modules/**"],
+  "rules": {
+    "no-unused-vars": "off",
+    "unicorn/no-new-array": "off",
+    "no-useless-escape": "off",
+    "unicorn/no-useless-fallback-in-spread": "off",
+    "unicorn/no-useless-spread": "off",
+    "unicorn/prefer-string-starts-ends-with": "off",
+    "no-eval": "off",
+    "no-unsafe-optional-chaining": "off",
+    "no-control-regex": "off",
+    "no-irregular-whitespace": "off",
+    "no-loss-of-precision": "off",
+    "oxc/erasing-op": "off",
+    "typescript/no-empty-object-type": "off",
+    "typescript/ban-ts-comment": "error",
+    "typescript/no-extra-non-null-assertion": "error",
+    "typescript/no-non-null-asserted-optional-chain": "error",
+    "typescript/no-wrapper-object-types": "error",
+    "typescript/no-unsafe-function-type": "error",
+    "typescript/no-duplicate-enum-values": "error",
+    "typescript/no-misused-new": "error",
+    "typescript/no-this-alias": "error",
+    "typescript/no-unnecessary-type-constraint": "error",
+    "typescript/no-import-type-side-effects": "error",
+    "typescript/no-array-delete": "error",
+    "typescript/no-confusing-non-null-assertion": "error",
+    "typescript/prefer-as-const": "error",
+    "typescript/adjacent-overload-signatures": "error",
+    "typescript/triple-slash-reference": "off"
+  },
+  "overrides": [
+    {
+      "files": ["**/test/**", "**/*.test.ts", "**/*.e2e.test.ts"],
+      "env": {
+        "node": true,
+        "builtin": true
+      }
+    },
+    {
+      "files": ["**/*.{ts,js,mjs,cjs}"],
+      "excludeFiles": [
+        "**/test/**",
+        "**/*.test.ts",
+        "**/*.e2e.test.ts"
+      ],
+      "rules": {
+        "import/no-nodejs-modules": "error",
+        "no-restricted-globals": ["error", {
+          "checkGlobalObject": true,
+          "globalObjects": ["global"],
+          "globals": [
+            "fetch",
+            "window",
+            "document",
+            "localStorage",
+            "sessionStorage",
+            "navigator",
+            "process",
+            "Buffer",
+            "__dirname",
+            "__filename",
+            "__PREFS_STORE__",
+            "__prefsDump",
+            "__nativeHostCall",
+            "__nativeDnsSet",
+            "__nativeRandomBytes",
+            "__nativeUrlEncodeGbk"
+          ]
+        }]
+      }
+    }
+  ],
+  "options": {
+    "denyWarnings": true
+  }
+}

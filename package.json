@@ -12,6 +12,7 @@
   "scripts": {
     "build": "npm run build -w @honyomi/plugin-runtime",
     "typecheck": "tsc -p tsconfig.json",
+    "lint": "oxlint -c oxlintrc.json --disable-nested-config packages && oxlint -c packages/tools/oxlintrc.jsonc --disable-nested-config packages/tools/template",
     "test": "npm run build -w @honyomi/plugin-runtime && node --import ./packages/tools/register.mjs --test \"packages/sdk/test/*.test.ts\" \"packages/testing/test/*.test.ts\" \"packages/tools/test/*.test.ts\" \"packages/runtime/test/*.test.ts\"",
     "publish:npm": "node scripts/publish.mjs"
   },

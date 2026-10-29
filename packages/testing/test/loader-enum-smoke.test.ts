@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 enum Mode { A = 'a', B = 'b' }
 
-test('esbuild loader 支持 enum（非可擦除语法）', () => {
+test('esbuild loader 鏀寔 enum锛堥潪鍙摝闄よ娉曪級', () => {
   const m: Mode = Mode.B;
   assert.equal(m, 'b');
   assert.equal(Object.keys(Mode).length, 2);

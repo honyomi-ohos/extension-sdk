@@ -650,7 +650,7 @@ export function loadExtension(options: LoadOptions): LoadedPlugin {
   ) as { key?: string };
   const key = typeof manifest.key === 'string' && manifest.key !== '' ? manifest.key : 'plugin';
 
-  const store: Record<string, string> = { ...(options.prefs ?? {}) };
+  const store: Record<string, string> = { ...options.prefs };
   const calls: FetchCall[] = [];
   const dnsCalls: DnsCall[] = [];
   const hostCalls: HostCallCall[] = [];
@@ -663,7 +663,7 @@ export function loadExtension(options: LoadOptions): LoadedPlugin {
     calls.push({
       url,
       method: opts.method ?? 'GET',
-      headers: { ...(opts.headers ?? {}) },
+      headers: { ...opts.headers },
       body: opts.body ?? '',
     });
     const r = fetchImpl(url, opts);
@@ -685,7 +685,7 @@ export function loadExtension(options: LoadOptions): LoadedPlugin {
     calls.push({
       url,
       method: opts.method ?? 'GET',
-      headers: { ...(opts.headers ?? {}) },
+      headers: { ...opts.headers },
       body: opts.body ?? '',
     });
     const r = fetchImpl(url, opts);

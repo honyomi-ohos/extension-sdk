@@ -42,7 +42,7 @@ catalog/<lang>/<id>/ main.ts（插件主体）、manifest.json、test/<id>.test.
 # catalog 目录：构建运行时 + 插件，再跑测试
 npm test
 # 或：npx honyomi-plugin test
-# catalog 目录：类型检查
+# catalog 目录：manifest、构建产物、oxlint、tsc
 npx honyomi-plugin lint
 # 改完 main.ts 后必须重新构建，否则测试加载的是旧的 dist
 npx honyomi-plugin build

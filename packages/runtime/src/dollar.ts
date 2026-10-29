@@ -6,7 +6,7 @@
 import type { HostGlobal, HttpRequestOptions, } from './host';
 import { g, natives, prefsStore } from './host';
 import type { BytesInput } from './polyfills/crypto';
-import { aesCbc, aesGcm, digestBytes, hmacBytes, md5bin, md5hex, pbkdf2Bytes, toHex, toU8, } from './polyfills/crypto';
+import { aesCbc, aesGcm, digestBytes, hmacBytes, md5bin, md5hex, pbkdf2Bytes, toHex } from './polyfills/crypto';
 import type { WrappedNode } from './selector';
 import { wrapDocument } from './selector';
 

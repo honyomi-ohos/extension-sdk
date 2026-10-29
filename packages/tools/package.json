@@ -24,6 +24,7 @@
     "register.mjs",
     "scripts",
     "skills",
+    "oxlintrc.jsonc",
     "template",
     "README.md"
   ],
@@ -36,6 +37,7 @@
     "@honyomi/plugin-test": "file:../testing",
     "@types/node": "^26.6.5",
     "esbuild": "^0.28.2",
+    "oxlint": "^1.90.0",
     "typescript": "^7.0.2"
   },
   "publishConfig": {

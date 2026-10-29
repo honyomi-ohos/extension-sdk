@@ -2,7 +2,7 @@
 //   honyomi-plugin build [key...]   构建 TS 插件（无参数 = 全部）
 //   honyomi-plugin test [glob...]   构建运行时与插件，再跑 node:test
 //   honyomi-plugin e2e [replay|record|live] [glob...]
-//   honyomi-plugin lint             manifest / 产物陈旧检测 + tsc
+//   honyomi-plugin lint             manifest / 产物陈旧检测 + oxlint + tsc
 //   honyomi-plugin check            只做 manifest 与产物陈旧检测
 //   honyomi-plugin init <dir>       从 template 初始化独立插件工程
 //   honyomi-plugin skill [path|install]
@@ -23,7 +23,7 @@ function usage(): void {
   console.log('  build [key...]   构建插件到 dist/<key>/main.js（无参数 = 全部）');
   console.log('  test [glob...]   构建后运行测试（缺省 */test/*.test.ts）');
   console.log('  e2e [mode]       replay | record | live，缺省 replay');
-  console.log('  lint             manifest、产物陈旧检测，以及 tsc');
+  console.log('  lint             manifest、产物陈旧检测、oxlint，以及 tsc');
   console.log('  typecheck        只运行 tsc');
   console.log('  check            manifest 校验 + 构建产物陈旧检测');
   console.log('  publish          构建并发布仓库到 dist/repo/');
