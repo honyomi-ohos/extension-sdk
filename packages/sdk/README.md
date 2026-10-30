@@ -73,7 +73,7 @@ npx honyomi-plugin lint
 | `getHeaders()` | 图片等后续请求要附带的头 |
 | `fetchImage(pageUrl, imageUrl)` | 代取或解密后的图片，base64 或 data URL |
 
-`manifest.json` 里 `key` 是小写 UUID v4。常用字段还有 `name`、`lang`、`version`、`versionCode`、`baseUrl`、`nsfw`、`contentType`（`manga` / `novel` / `video`）、`contentTypes`、`settings`、`supportsLatest`、`bt`、`icon`、`dslVersion`、`minAppVersion`。`settings[].type` 为 `switch`、`select`、`edit` 或 `password`。
+`manifest.json` 里 `key` 是小写 UUID v4。常用字段还有 `name`、`lang`、`version`、`versionCode`、`baseUrl`、`nsfw`、`acgn`（ACGN 内容源标记，宿主据此启用 Bangumi 相关系列匹配，缺省 `false`）、`contentType`（`manga` / `novel` / `video`）、`contentTypes`、`settings`、`supportsLatest`、`bt`、`icon`、`dslVersion`、`minAppVersion`。`settings[].type` 为 `switch`、`select`、`edit` 或 `password`。
 
 ## 返回值
 

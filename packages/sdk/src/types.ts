@@ -237,6 +237,8 @@ export interface PluginManifest {
   bt?: boolean;
   runtime?: string;
   engine?: string;
+  // ACGN 内容源标记：内容为动画/漫画/游戏/轻小说等二次元作品（宿主据此启用 Bangumi 相关系列匹配），缺省 false
+  acgn?: boolean;
   // 主内容类型（manga | novel | video，缺省 manga）
   contentType?: string;
   // 内容类型全量列表（可多选；声明时优先于 contentType，contentType 须包含在列表内）

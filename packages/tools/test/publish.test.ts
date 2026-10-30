@@ -36,11 +36,15 @@ function validManifest(key: string): string {
   });
 }
 
-test('collect throws when the only plugin has a broken manifest', () => {
+test('collect records a broken manifest instead of failing the batch', () => {
   const root = mkdtempSync(path.join(tmpdir(), 'honyomi-pub-'));
   try {
     writePlugin(root, 'badplug', '{');
-    assert.throws(() => collect(root), /解析失败/);
+    const { items, skipped } = collect(root);
+    assert.equal(items.length, 0);
+    assert.equal(skipped.length, 1);
+    assert.equal(skipped[0].plugin, 'badplug');
+    assert.match(skipped[0].reason, /解析失败/);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -51,19 +55,23 @@ test('collect skips a broken manifest when a valid plugin exists', () => {
   try {
     writePlugin(root, 'badplug', '{');
     writePlugin(root, 'goodplug', validManifest(GOOD_KEY));
-    const items = collect(root);
+    const { items, skipped } = collect(root);
     assert.equal(items.length, 1);
     assert.equal(items[0].man.key, GOOD_KEY);
+    assert.equal(skipped.length, 1);
+    assert.equal(skipped[0].plugin, 'badplug');
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
 });
 
-test('collect throws when the only plugin key is not a UUID v4', () => {
+test('collect records a plugin whose key is not a UUID v4', () => {
   const root = mkdtempSync(path.join(tmpdir(), 'honyomi-pub-'));
   try {
     writePlugin(root, 'slug', validManifest('goodplug'));
-    assert.throws(() => collect(root), /UUID v4/);
+    const { items, skipped } = collect(root);
+    assert.equal(items.length, 0);
+    assert.match(skipped[0].reason, /UUID v4/);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -74,9 +82,11 @@ test('collect skips duplicate plugin keys and keeps the first', () => {
   try {
     writePlugin(root, 'one', validManifest(SAME_KEY));
     writePlugin(root, 'two', validManifest(SAME_KEY));
-    const items = collect(root);
+    const { items, skipped } = collect(root);
     assert.equal(items.length, 1);
     assert.equal(items[0].man.key, SAME_KEY);
+    assert.equal(skipped.length, 1);
+    assert.match(skipped[0].reason, /key 重复/);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
@@ -86,10 +96,70 @@ test('collect returns a valid plugin that has a build output', () => {
   const root = mkdtempSync(path.join(tmpdir(), 'honyomi-pub-'));
   try {
     writePlugin(root, 'goodplug', validManifest(GOOD_KEY));
-    const items = collect(root);
+    const { items, skipped } = collect(root);
     assert.equal(items.length, 1);
     assert.equal(items[0].man.key, GOOD_KEY);
+    assert.equal(skipped.length, 0);
   } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('collect records a plugin whose build output is missing', () => {
+  const root = mkdtempSync(path.join(tmpdir(), 'honyomi-pub-'));
+  try {
+    writePlugin(root, 'goodplug', validManifest(GOOD_KEY));
+    rmSync(path.join(root, 'dist', 'goodplug'), { recursive: true, force: true });
+    const { items, skipped } = collect(root);
+    assert.equal(items.length, 0);
+    assert.equal(skipped[0].plugin, 'goodplug');
+    assert.match(skipped[0].reason, /缺少构建产物/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('collect records a plugin that has no manifest.json', () => {
+  const root = mkdtempSync(path.join(tmpdir(), 'honyomi-pub-'));
+  try {
+    const dir = path.join(root, 'nomanifest');
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(path.join(dir, 'main.ts'), 'export {};\n');
+    const { items, skipped } = collect(root);
+    assert.equal(items.length, 0);
+    assert.deepEqual(skipped, [{ plugin: 'nomanifest', reason: '缺少 manifest.json' }]);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('publish skips incomplete plugins and lists them after the summary', () => {
+  const root = mkdtempSync(path.join(tmpdir(), 'honyomi-pub-'));
+  const logs: string[] = [];
+  const original = console.log;
+  console.log = (...args: unknown[]) => {
+    logs.push(args.map((arg) => String(arg)).join(' '));
+  };
+  try {
+    writePlugin(root, 'goodplug', validManifest(GOOD_KEY));
+    writePlugin(root, 'badplug', '{');
+    const missing = path.join(root, 'nomanifest');
+    mkdirSync(missing, { recursive: true });
+    writeFileSync(path.join(missing, 'main.ts'), 'export {};\n');
+    const published = publish(root);
+    assert.equal(published, 1);
+    const text = logs.join('\n');
+    const summaryAt = text.indexOf('"published": 1');
+    const noticeAt = text.indexOf('跳过 2 个插件：');
+    assert.ok(summaryAt !== -1);
+    assert.ok(noticeAt > summaryAt);
+    assert.match(text, /badplug: manifest.json 解析失败/);
+    assert.match(text, /nomanifest: 缺少 manifest.json/);
+    const bytes = new Uint8Array(readFileSync(path.join(root, 'dist', 'repo', REPO_INDEX_FILENAME)));
+    assert.equal(decodeRepoIndex(bytes).extensions.length, 1);
+    assert.equal(decodeRepoIndex(bytes).extensions[0].packageName, GOOD_KEY);
+  } finally {
+    console.log = original;
     rmSync(root, { recursive: true, force: true });
   }
 });

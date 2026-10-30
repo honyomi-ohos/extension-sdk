@@ -52,6 +52,8 @@ export interface RepoIndexExtension {
   contentTypes: string[];
   // .honyomiplug sha256（hex）：release 安装强制校验
   checksum: string;
+  // ACGN 内容源标记（宿主据此启用 Bangumi 相关系列匹配）
+  acgn: boolean;
 }
 
 export interface RepoIndexStore {
@@ -113,6 +115,7 @@ export function encodeRepoIndex(store: RepoIndexStore): Uint8Array {
         bt: ext.bt,
         contentTypes: ext.contentTypes.map((t) => contentTypeToProto(t)),
         checksum: ext.checksum,
+        acgn: ext.acgn,
       })),
     }
     : undefined;
@@ -155,6 +158,7 @@ interface RawExtension {
   bt?: boolean;
   contentTypes?: number[];
   checksum?: string;
+  acgn?: boolean;
 }
 
 interface RawStore {
@@ -235,6 +239,7 @@ export function decodeRepoIndex(bytes: Uint8Array): RepoIndexStore {
       bt: item.bt === true,
       contentTypes: contentTypes,
       checksum: str(item.checksum),
+      acgn: item.acgn === true,
     });
   }
   return {

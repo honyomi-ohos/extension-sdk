@@ -42,6 +42,7 @@ message RepoExtension {
   bool bt = 9;                            // BT 源标记（内容为种子/magnet 下载）
   repeated ContentType contentTypes = 10; // 内容类型（可多选；[0] 为主类型）
   string checksum = 11;                   // .honyomiplug sha256（hex）：release 安装强制校验
+  bool acgn = 12;                         // ACGN 内容源标记（宿主据此启用 Bangumi 相关系列匹配）
 }
 
 message RepoResources {

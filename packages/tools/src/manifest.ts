@@ -102,6 +102,9 @@ export function validateManifest(man: PluginManifest, source: string): string[] 
   if (man.nsfw !== undefined && typeof man.nsfw !== 'boolean') {
     at('nsfw 必须是 boolean');
   }
+  if (man.acgn !== undefined && typeof man.acgn !== 'boolean') {
+    at('acgn 必须是 boolean');
+  }
   if (man.bt !== undefined && typeof man.bt !== 'boolean') {
     at('bt 必须是 boolean');
   }

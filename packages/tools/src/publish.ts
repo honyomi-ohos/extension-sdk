@@ -21,58 +21,75 @@ export interface PublishItem {
   mainJs: string;
 }
 
+export interface SkippedPlugin {
+  plugin: string;
+  reason: string;
+}
+
+export interface CollectResult {
+  items: PublishItem[];
+  skipped: SkippedPlugin[];
+}
+
 function resolveMainJs(root: string, dir: string): string {
   return distMainJs(root, outputKey(root, dir));
 }
 
-export function collect(root: string): PublishItem[] {
+function skipReason(errors: string[], label: string): string {
+  const prefix = `${label}: `;
+  return errors.map((error) => error.startsWith(prefix) ? error.slice(prefix.length) : error).join('；');
+}
+
+function readManifest(dir: string): { text: string } | { reason: string } {
+  const manifestPath = path.join(dir, 'manifest.json');
+  if (!existsSync(manifestPath)) {
+    return { reason: '缺少 manifest.json' };
+  }
+  try {
+    return { text: readFileSync(manifestPath, 'utf8') };
+  } catch {
+    return { reason: 'manifest.json 读取失败' };
+  }
+}
+
+// 文件不全或校验不通过的插件记入 skipped，不中断其余插件。
+export function collect(root: string): CollectResult {
   const byKey = new Map<string, PublishItem>();
-  const errors: string[] = [];
-  const missing: string[] = [];
-  const dirs = listPluginDirs(root);
-  for (const dir of dirs) {
+  const skipped: SkippedPlugin[] = [];
+  for (const dir of listPluginDirs(root)) {
     const label = pluginRel(root, dir);
-    const mainJs = resolveMainJs(root, dir);
-    const man = parseManifest(readFileSync(path.join(dir, 'manifest.json'), 'utf8'));
+    const manifest = readManifest(dir);
+    if (!('text' in manifest)) {
+      skipped.push({ plugin: label, reason: manifest.reason });
+      continue;
+    }
+    const man = parseManifest(manifest.text);
     if (man === null) {
-      errors.push(`${label}: manifest.json 解析失败`);
+      skipped.push({ plugin: label, reason: 'manifest.json 解析失败' });
       continue;
     }
     const itemErrors = validateManifest(man, label);
     if (itemErrors.length > 0) {
-      errors.push(...itemErrors);
+      skipped.push({ plugin: label, reason: skipReason(itemErrors, label) });
       continue;
     }
     if (byKey.has(man.key)) {
-      errors.push(`${label}: key 重复 ${man.key}`);
+      skipped.push({ plugin: label, reason: `key 重复 ${man.key}` });
       continue;
     }
-    // fresh clone 未 build 时 dist 产物不存在 → 汇总报错（publish 前必须 build）
+    const mainJs = resolveMainJs(root, dir);
     if (!existsSync(mainJs)) {
-      missing.push(label);
+      skipped.push({ plugin: label, reason: '缺少构建产物（honyomi-plugin build）' });
       continue;
     }
     byKey.set(man.key, {
       dir,
       man,
       origin: 'catalog',
-      mainJs
+      mainJs,
     });
   }
-  if (missing.length > 0) {
-    errors.push(`缺少构建产物（npm run build）：${missing.join(', ')}`);
-  }
-  if (errors.length > 0) {
-    // 存在合格插件 → 跳过不合格插件并警告；全部不合格 → 仍然报错
-    if (byKey.size > 0) {
-      for (const e of errors) {
-        console.warn(`跳过不合格插件：${e}`);
-      }
-    } else {
-      throw new Error(errors.join('\n'));
-    }
-  }
-  return [...byKey.values()];
+  return { items: [...byKey.values()], skipped };
 }
 
 export interface ValidateResult {
@@ -144,20 +161,22 @@ export function publish(root: string, options: PublishOptions = {}): number {
     }
   }
 
-  const items = collect(root);
-  // 二次校验失败的插件同样跳过并警告，不阻断整体发布
+  const collected = collect(root);
+  const skipped = [...collected.skipped];
+  // 二次校验失败的插件同样跳过，留到结尾和前面的跳过项一起通知。
   const validItems: PublishItem[] = [];
-  for (const result of validateAll(items)) {
-    if (result.errors.length > 0) {
-      for (const e of result.errors) {
-        console.warn(`跳过不合格插件：manifest 校验失败 ${e}`);
-      }
+  for (const result of validateAll(collected.items)) {
+    if (result.errors.length === 0) {
+      validItems.push(result.item);
       continue;
     }
-    validItems.push(result.item);
-  }
-  if (items.length > 0 && validItems.length === 0) {
-    throw new Error('没有可发布的合格插件');
+    skipped.push({
+      plugin: pluginRel(root, result.item.dir),
+      reason: result.errors.map((error) => {
+        const at = error.indexOf(': ');
+        return at === -1 ? error : error.slice(at + 2);
+      }).join('；'),
+    });
   }
 
   const releaseBase = options.releaseBase !== undefined ? normalizeReleaseBase(options.releaseBase) : undefined;
@@ -205,7 +224,16 @@ export function publish(root: string, options: PublishOptions = {}): number {
     summary.release = releaseBase;
     summary.repoUrl = releaseFileUrl(releaseBase, REPO_INDEX_FILENAME);
   }
+  if (skipped.length > 0) {
+    summary.skipped = skipped.map((item) => `${item.plugin}: ${item.reason}`);
+  }
   console.log(JSON.stringify(summary, null, 2));
+  if (skipped.length > 0) {
+    console.log(`跳过 ${skipped.length} 个插件：`);
+    for (const item of skipped) {
+      console.log(`  ${item.plugin}: ${item.reason}`);
+    }
+  }
   return repoEntries.length;
 }
 
@@ -263,6 +291,7 @@ function packOne(root: string, item: PublishItem, releaseBase?: string): RepoInd
     bt: man.bt === true,
     contentTypes: contentTypesOf(man),
     checksum: createHash('sha256').update(packData).digest('hex'),
+    acgn: man.acgn === true,
   };
   return entry;
 }

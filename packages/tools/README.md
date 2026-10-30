@@ -146,6 +146,8 @@ assert.ok(loaded.calls[0].url.includes('/list?page=1'));
 
 ## 发布到 GitHub Release
 
+缺少 `manifest.json`、无法解析、校验不通过或缺少构建产物的插件不会进入仓库。命令结束时列出被跳过的插件。
+
 GitHub Release 的附件没有目录。加上 `--release` 后，`index.bin` 里的插件包和图标改成该 Release 的下载地址，文件名是附件名（`packs/`、`icons/` 只留在本地目录里）。应用里的仓库地址用同一个前缀下的 `index.bin`，索引、插件包、图标都从这次 Release 拉取。
 
 ```bash
