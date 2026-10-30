@@ -11,9 +11,12 @@
 //   honyomi-plugin skill [path|install]
 //   honyomi-plugin publish [--release <url>]
 //   honyomi-plugin serve [dir] [--host 127.0.0.1|0.0.0.0]
+//   honyomi-plugin --help
+//   honyomi-plugin <command> --help
 import * as path from 'node:path';
 import { buildPlugin, buildPlugins, pluginMainJs } from './build.ts';
 import { check, checkStandalone } from './check.ts';
+import { helpText, requestedHelp } from './help.ts';
 import { normalizeReleaseBase, publish } from './publish.ts';
 import { initProject } from './init.ts';
 import { locateProject, pluginArgs } from './project.ts';
@@ -21,33 +24,21 @@ import { installSkill, lint, runE2e, runTests, skillDir, typecheckProject } from
 import { serve } from './serve.ts';
 
 function usage(): void {
-  console.log('用法: honyomi-plugin <command> [args]');
-  console.log('在 catalog 工程（package.json name 为 honyomi-catalog）：');
-  console.log('  build [插件...]  构建到 dist/<key>/main.js（无参数 = 全部）');
-  console.log('  test [插件|glob...]');
-  console.log('                   构建后运行测试。插件路径会展开成该目录的 test/*.test.ts');
-  console.log('  e2e [mode] [插件|glob...]');
-  console.log('                   replay | record | live，缺省 replay');
-  console.log('  lint [--fix] [插件...]');
-  console.log('                   manifest、产物陈旧检测、oxlint，以及 tsc');
-  console.log('                   --fix  应用 oxlint 的安全自动修复');
-  console.log('  typecheck [插件...]');
-  console.log('                   只运行 tsc');
-  console.log('  check [插件...]  manifest 校验 + 构建产物陈旧检测');
-  console.log('  publish          构建并发布整个仓库到 dist/repo/');
-  console.log('                   --release <url>  索引、插件包、图标都指向该 GitHub Release');
-  console.log('  serve [dir] [--host 127.0.0.1|0.0.0.0]');
-  console.log('                   托管整个 dist/repo。在插件目录里执行也一样');
-  console.log('插件路径写成 src/zh/example 或 zh/example。');
-  console.log('在插件目录中执行且不写路径时，除 publish 与 serve 外只处理当前插件。');
-  console.log('在独立插件目录（manifest.json + main.ts）：');
-  console.log('  build / test / e2e / lint / typecheck / check');
-  console.log('                   只针对当前插件');
-  console.log('任意目录：');
-  console.log('  init <dir> [--name 显示名] [--lang zh]');
-  console.log('                   初始化 catalog 工程，插件放在 src/<lang>/<id>/');
-  console.log('  skill path       打印随包分发的 SKILL.md 目录');
-  console.log('  skill install    复制到 .cursor/skills 与 .deveco/skills');
+  const text = helpText('');
+  if (text !== null) {
+    console.log(text);
+  }
+}
+
+function showHelp(command: string): void {
+  const text = helpText(command);
+  if (text === null) {
+    console.error(`未知命令：${command}`);
+    usage();
+    process.exitCode = 1;
+    return;
+  }
+  console.log(text);
 }
 
 function parseServeArgs(args: string[], root: string): { dir: string; host: string } {
@@ -159,6 +150,11 @@ function parsePublishArgs(args: string[]): { releaseBase?: string } {
 
 async function main(): Promise<void> {
   const [cmd, ...args] = process.argv.slice(2);
+  const topic = requestedHelp(cmd, args);
+  if (topic !== undefined) {
+    showHelp(topic);
+    return;
+  }
   if (cmd === 'init') {
     const parsed = parseInitArgs(args);
     const created = initProject({

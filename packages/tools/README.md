@@ -49,6 +49,8 @@ import { createFixtureFetch, loadExtension, assertWorkPage } from '@honyomi/plug
 | `honyomi-plugin skill path` | 打印随包分发的调试 skill 目录 |
 | `honyomi-plugin skill install` | 复制 skill 到 `.cursor/skills` 与 `.deveco/skills` |
 
+`honyomi-plugin --help` 打印命令一览。`honyomi-plugin <command> --help` 打印该命令的用法，`-h` 和 `help <command>` 相同。
+
 `build`、`test`、`e2e`、`lint`、`typecheck`、`check` 都可以只针对一个插件。在 catalog 根目录写上路径，例如 `src/zh/example` 或 `zh/example`；语言目录 `src/zh` 会带上该语言下的全部插件。已经在插件目录里时，不写路径也只处理当前插件。`publish` 始终发布整个仓库。`serve` 始终托管整个 `dist/repo`。
 
 `lint` 会把 manifest、oxlint 和 `tsc` 都跑完，前面的失败不会跳过后面的检查。oxlint 报告未使用变量等代码问题，并禁止插件文件使用沙箱里没有的全局（`fetch`、`window`、`document`、`process` 等）或 `import` Node 内建模块。`test/` 里可以 `import node:`。

@@ -41,6 +41,9 @@ catalog/<lang>/<id>/ main.ts（插件主体）、manifest.json、test/<id>.test.
 ```bash
 # catalog 目录：构建运行时 + 全部插件，再跑测试
 npm test
+# 命令说明
+npx honyomi-plugin --help
+npx honyomi-plugin test --help
 # 只处理一个插件。路径用 src/<lang>/<id> 或 <lang>/<id>。
 # 已经在该插件目录里时，可以不写路径。publish 始终发布整个仓库。
 # 改完 main.ts 后必须重新构建，否则测试加载的是旧的 dist。
