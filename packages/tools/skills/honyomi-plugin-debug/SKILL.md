@@ -39,13 +39,15 @@ catalog/<lang>/<id>/ main.ts（插件主体）、manifest.json、test/<id>.test.
 ## 2. 命令速查
 
 ```bash
-# catalog 目录：构建运行时 + 插件，再跑测试
+# catalog 目录：构建运行时 + 全部插件，再跑测试
 npm test
-# 或：npx honyomi-plugin test
-# catalog 目录：manifest、构建产物、oxlint、tsc
-npx honyomi-plugin lint
-# 改完 main.ts 后必须重新构建，否则测试加载的是旧的 dist
-npx honyomi-plugin build
+# 只处理一个插件。路径用 src/<lang>/<id> 或 <lang>/<id>。
+# 已经在该插件目录里时，可以不写路径。publish 始终发布整个仓库。
+# 改完 main.ts 后必须重新构建，否则测试加载的是旧的 dist。
+npx honyomi-plugin test src/zh/example
+npx honyomi-plugin lint src/zh/example
+npx honyomi-plugin build src/zh/example
+npx honyomi-plugin e2e replay src/zh/example
 ```
 
 ## 3. 通用调试流程（七步）

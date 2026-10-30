@@ -37,17 +37,19 @@ import { createFixtureFetch, loadExtension, assertWorkPage } from '@honyomi/plug
 
 | 命令 | 作用 |
 | --- | --- |
-| `honyomi-plugin build [key...]` | 编译插件。catalog 无参数时构建全部 |
-| `honyomi-plugin test [glob...]` | 构建运行时 shim 和插件，再跑 `node:test` |
-| `honyomi-plugin e2e [replay\|record\|live] [glob...]` | 设置 `HONYOMI_E2E` 后跑 `*.e2e.test.ts` |
-| `honyomi-plugin lint [--fix]` | manifest、产物是否陈旧、oxlint，以及 `tsc`。`--fix` 应用 oxlint 的安全自动修复 |
-| `honyomi-plugin typecheck` | 只运行 `tsc` |
-| `honyomi-plugin check` | 只做 manifest 和产物陈旧检测 |
-| `honyomi-plugin publish [--release <url>]` | 构建并写出 `dist/repo/`（`.honyomiplug`、图标、`index.bin`）。`--release` 把这三类文件都写成 GitHub Release 附件地址 |
-| `honyomi-plugin serve [dir] [--host <地址>]` | 静态托管仓库索引 |
+| `honyomi-plugin build [插件...]` | 编译插件。catalog 无参数时构建全部 |
+| `honyomi-plugin test [插件\|glob...]` | 构建运行时 shim 和插件，再跑 `node:test` |
+| `honyomi-plugin e2e [replay\|record\|live] [插件\|glob...]` | 设置 `HONYOMI_E2E` 后跑 `*.e2e.test.ts` |
+| `honyomi-plugin lint [--fix] [插件...]` | manifest、产物是否陈旧、oxlint，以及 `tsc`。`--fix` 应用 oxlint 的安全自动修复 |
+| `honyomi-plugin typecheck [插件...]` | 只运行 `tsc` |
+| `honyomi-plugin check [插件...]` | 只做 manifest 和产物陈旧检测 |
+| `honyomi-plugin publish [--release <url>]` | 构建并写出整个仓库的 `dist/repo/`（`.honyomiplug`、图标、`index.bin`）。不接受插件路径。`--release` 把这三类文件都写成 GitHub Release 附件地址 |
+| `honyomi-plugin serve [dir] [--host <地址>]` | 静态托管整个仓库索引。在插件目录里执行也托管 `dist/repo` |
 | `honyomi-plugin init <dir>` | 初始化 catalog 工程，示例插件在 `src/<lang>/example/` |
 | `honyomi-plugin skill path` | 打印随包分发的调试 skill 目录 |
 | `honyomi-plugin skill install` | 复制 skill 到 `.cursor/skills` 与 `.deveco/skills` |
+
+`build`、`test`、`e2e`、`lint`、`typecheck`、`check` 都可以只针对一个插件。在 catalog 根目录写上路径，例如 `src/zh/example` 或 `zh/example`；语言目录 `src/zh` 会带上该语言下的全部插件。已经在插件目录里时，不写路径也只处理当前插件。`publish` 始终发布整个仓库。`serve` 始终托管整个 `dist/repo`。
 
 `lint` 会把 manifest、oxlint 和 `tsc` 都跑完，前面的失败不会跳过后面的检查。oxlint 报告未使用变量等代码问题，并禁止插件文件使用沙箱里没有的全局（`fetch`、`window`、`document`、`process` 等）或 `import` Node 内建模块。`test/` 里可以 `import node:`。
 
@@ -112,6 +114,7 @@ defineExtension(ext);
 npx honyomi-plugin build   # dist/main.js
 npx honyomi-plugin test
 npx honyomi-plugin lint
+npx honyomi-plugin check
 ```
 
 同目录下的相对 `.ts` 导入会打进同一个 `main.js`。
@@ -135,7 +138,7 @@ assert.ok(loaded.calls[0].url.includes('/list?page=1'));
 
 `loadExtension` 在 Node `vm` 里加载与宿主相同的运行时 shim（`@honyomi/plugin-runtime/shim`）和构建产物。断言、fixture 和 `defineSourceE2eSuite` 见 `@honyomi/plugin-test` 的 README。
 
-`honyomi-plugin e2e` 的缺省模式是 `replay`。它只收集 `*.e2e.test.ts`。传入插件相对路径（如 `src/zh/example`）时，会展开成该目录下的 `test/*.e2e.test.ts`。`record` 与 `live` 会访问真站。
+`honyomi-plugin e2e` 的缺省模式是 `replay`。它只收集 `*.e2e.test.ts`。传入插件相对路径（如 `src/zh/example`）时，会展开成该目录下的 `test/*.e2e.test.ts`，并且只构建这些插件。`honyomi-plugin test` 对同一个路径展开成 `test/*.test.ts`。`record` 与 `live` 会访问真站。
 
 `honyomi-plugin serve` 缺省托管 `dist/repo`，监听 `0.0.0.0:8765`。`--host` 只接受 `127.0.0.1`、`localhost` 或 `0.0.0.0`。请求 `/` 时返回 `index.bin`。
 

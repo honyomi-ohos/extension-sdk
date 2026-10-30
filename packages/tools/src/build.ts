@@ -83,29 +83,55 @@ export function pluginMainJs(pluginDir: string): string {
   return path.join(pluginDir, 'dist', 'main.js');
 }
 
-const PLUGIN_KEY = /^(?:src\/)?[A-Za-z0-9_-]+(?:\/[a-z0-9_]+)?$/;
+const PLUGIN_DIR_KEY = /^(?:src\/)?[A-Za-z0-9_-]+(?:\/[a-z0-9_]+)?$/;
 
-export async function buildPlugins(root: string, keys: string[]): Promise<number> {
+// 接受 src/zh/example、zh/example，以及语言目录 zh / src/zh。
+export function normalizeKey(key: string): string {
+  let norm = key.split(path.sep).join('/').replace(/\\/g, '/');
+  if (norm.startsWith('./')) {
+    norm = norm.slice(2);
+  }
+  return norm.replace(/\/+$/, '');
+}
+
+export function isPluginDirKey(key: string): boolean {
+  return PLUGIN_DIR_KEY.test(normalizeKey(key));
+}
+
+function pluginMatches(rel: string, norm: string): boolean {
+  return rel === norm || rel.endsWith(`/${norm}`) || rel.startsWith(`${norm}/`) || rel.includes(`/${norm}/`);
+}
+
+export function matchPluginDirs(root: string, keys: string[]): string[] {
   const all = listPluginDirs(root);
-  let dirs: string[] = [];
   if (keys.length === 0) {
-    dirs = all;
-  } else {
-    for (const key of keys) {
-      const norm = key.split(path.sep).join('/');
-      if (!PLUGIN_KEY.test(norm)) {
-        throw new Error(`非法插件 key：${key}`);
+    return all;
+  }
+  const seen = new Set<string>();
+  const dirs: string[] = [];
+  for (const key of keys) {
+    const norm = normalizeKey(key);
+    if (!PLUGIN_DIR_KEY.test(norm)) {
+      throw new Error(`非法插件 key：${key}`);
+    }
+    const matched = all.filter((dir) => pluginMatches(pluginRel(root, dir), norm));
+    if (matched.length === 0) {
+      throw new Error(`不是插件目录（缺 main.ts / main.js）：${key}`);
+    }
+    for (const dir of matched) {
+      const abs = path.resolve(dir);
+      if (seen.has(abs)) {
+        continue;
       }
-      const matched = all.filter((dir) => {
-        const rel = pluginRel(root, dir);
-        return rel === norm || rel.endsWith(`/${norm}`) || rel.startsWith(`${norm}/`);
-      });
-      if (matched.length === 0) {
-        throw new Error(`不是插件目录（缺 main.ts / main.js）：${key}`);
-      }
-      dirs.push(...matched);
+      seen.add(abs);
+      dirs.push(dir);
     }
   }
+  return dirs;
+}
+
+export async function buildPlugins(root: string, keys: string[]): Promise<number> {
+  const dirs = matchPluginDirs(root, keys);
   for (const dir of dirs) {
     const key = outputKey(root, dir);
     await buildPlugin(dir, distMainJs(root, key), root);

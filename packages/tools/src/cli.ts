@@ -1,41 +1,51 @@
 // 插件工具链 CLI。用户只安装 @honyomi/plugin-tools。
-//   honyomi-plugin build [key...]   构建 TS 插件（无参数 = 全部）
-//   honyomi-plugin test [glob...]   构建运行时与插件，再跑 node:test
-//   honyomi-plugin e2e [replay|record|live] [glob...]
-//   honyomi-plugin lint             manifest / 产物陈旧检测 + oxlint + tsc
-//   honyomi-plugin check            只做 manifest 与产物陈旧检测
-//   honyomi-plugin init <dir>       从 template 初始化独立插件工程
+// 除 publish 外，catalog 命令都接受插件路径（src/zh/example 或 zh/example）。
+// 在插件目录里执行且不写路径时，同样只处理当前插件。publish 始终覆盖整个仓库。
+//   honyomi-plugin build [插件...]
+//   honyomi-plugin test [插件|glob...]
+//   honyomi-plugin e2e [replay|record|live] [插件|glob...]
+//   honyomi-plugin lint [--fix] [插件...]
+//   honyomi-plugin typecheck [插件...]
+//   honyomi-plugin check [插件...]
+//   honyomi-plugin init <dir>
 //   honyomi-plugin skill [path|install]
-//   honyomi-plugin publish [--release <url>]  构建全部 TS 插件并发布仓库
+//   honyomi-plugin publish [--release <url>]
 //   honyomi-plugin serve [dir] [--host 127.0.0.1|0.0.0.0]
 import * as path from 'node:path';
 import { buildPlugin, buildPlugins, pluginMainJs } from './build.ts';
-import { check } from './check.ts';
+import { check, checkStandalone } from './check.ts';
 import { normalizeReleaseBase, publish } from './publish.ts';
 import { initProject } from './init.ts';
-import { locateProject } from './project.ts';
+import { locateProject, pluginArgs } from './project.ts';
 import { installSkill, lint, runE2e, runTests, skillDir, typecheckProject } from './run.ts';
 import { serve } from './serve.ts';
 
 function usage(): void {
   console.log('用法: honyomi-plugin <command> [args]');
   console.log('在 catalog 工程（package.json name 为 honyomi-catalog）：');
-  console.log('  build [key...]   构建插件到 dist/<key>/main.js（无参数 = 全部）');
-  console.log('  test [glob...]   构建后运行测试（缺省 */test/*.test.ts）');
-  console.log('  e2e [mode]       replay | record | live，缺省 replay');
-  console.log('  lint [--fix]     manifest、产物陈旧检测、oxlint，以及 tsc');
+  console.log('  build [插件...]  构建到 dist/<key>/main.js（无参数 = 全部）');
+  console.log('  test [插件|glob...]');
+  console.log('                   构建后运行测试。插件路径会展开成该目录的 test/*.test.ts');
+  console.log('  e2e [mode] [插件|glob...]');
+  console.log('                   replay | record | live，缺省 replay');
+  console.log('  lint [--fix] [插件...]');
+  console.log('                   manifest、产物陈旧检测、oxlint，以及 tsc');
   console.log('                   --fix  应用 oxlint 的安全自动修复');
-  console.log('  typecheck        只运行 tsc');
-  console.log('  check            manifest 校验 + 构建产物陈旧检测');
-  console.log('  publish          构建并发布仓库到 dist/repo/');
+  console.log('  typecheck [插件...]');
+  console.log('                   只运行 tsc');
+  console.log('  check [插件...]  manifest 校验 + 构建产物陈旧检测');
+  console.log('  publish          构建并发布整个仓库到 dist/repo/');
   console.log('                   --release <url>  索引、插件包、图标都指向该 GitHub Release');
   console.log('  serve [dir] [--host 127.0.0.1|0.0.0.0]');
+  console.log('                   托管整个 dist/repo。在插件目录里执行也一样');
+  console.log('插件路径写成 src/zh/example 或 zh/example。');
+  console.log('在插件目录中执行且不写路径时，除 publish 与 serve 外只处理当前插件。');
   console.log('在独立插件目录（manifest.json + main.ts）：');
-  console.log('  build            输出 dist/main.js');
-  console.log('  test / lint      同 catalog，范围是当前插件');
+  console.log('  build / test / e2e / lint / typecheck / check');
+  console.log('                   只针对当前插件');
   console.log('任意目录：');
   console.log('  init <dir> [--name 显示名] [--lang zh]');
-  console.log('                   初始化 catalog 工程，插件放在 <lang>/<id>/');
+  console.log('                   初始化 catalog 工程，插件放在 src/<lang>/<id>/');
   console.log('  skill path       打印随包分发的 SKILL.md 目录');
   console.log('  skill install    复制到 .cursor/skills 与 .deveco/skills');
 }
@@ -104,16 +114,29 @@ function parseInitArgs(args: string[]): { dir: string; name?: string; lang: stri
   return { dir: path.resolve(dir), name, lang };
 }
 
-function parseLintArgs(args: string[]): { fix: boolean } {
+function parseLintArgs(args: string[]): { fix: boolean; keys: string[] } {
   let fix = false;
+  const keys: string[] = [];
   for (const arg of args) {
     if (arg === '--fix') {
       fix = true;
       continue;
     }
-    throw new Error(`未知参数：${arg}`);
+    if (arg.startsWith('-')) {
+      throw new Error(`未知参数：${arg}`);
+    }
+    keys.push(arg);
   }
-  return { fix };
+  return { fix, keys };
+}
+
+function positional(args: string[]): string[] {
+  for (const arg of args) {
+    if (arg.startsWith('-')) {
+      throw new Error(`未知参数：${arg}`);
+    }
+  }
+  return args;
 }
 
 function parsePublishArgs(args: string[]): { releaseBase?: string } {
@@ -179,37 +202,52 @@ async function main(): Promise<void> {
     return;
   }
   if (cmd === 'lint') {
-    lint(project, parseLintArgs(args));
+    const parsed = parseLintArgs(args);
+    lint(project, { fix: parsed.fix, keys: pluginArgs(project, parsed.keys) });
     return;
   }
   if (cmd === 'typecheck') {
-    typecheckProject(project);
+    typecheckProject(project, pluginArgs(project, positional(args)));
     return;
   }
-  if (project.kind === 'plugin') {
-    if (cmd === 'build') {
+  if (cmd === 'check') {
+    if (project.kind === 'plugin') {
+      pluginArgs(project, positional(args));
+      checkStandalone(project.root, 'check');
+      console.log('check: ok');
+      return;
+    }
+    check(project.root, pluginArgs(project, positional(args)));
+    return;
+  }
+  if (cmd === 'build') {
+    if (project.kind === 'plugin') {
+      pluginArgs(project, positional(args));
       await buildPlugin(project.root, pluginMainJs(project.root));
       console.log(`built ${path.relative(project.root, pluginMainJs(project.root))}`);
       return;
     }
-    usage();
-    process.exitCode = 1;
+    await buildPlugins(project.root, pluginArgs(project, positional(args)));
     return;
   }
-  if (cmd === 'build') {
-    await buildPlugins(project.root, project.pluginKey !== undefined ? [project.pluginKey] : args);
-  } else if (cmd === 'publish') {
+  if (cmd === 'publish') {
+    // 始终发布整个 catalog。插件路径会在这里被拒绝，不会先去构建。
+    const options = parsePublishArgs(args);
     await buildPlugins(project.root, []);
-    publish(project.root, parsePublishArgs(args));
-  } else if (cmd === 'check') {
-    check(project.root);
-  } else if (cmd === 'serve') {
+    publish(project.root, options);
+    return;
+  }
+  if (cmd === 'serve') {
+    if (project.kind === 'plugin') {
+      usage();
+      throw new Error('serve 托管 catalog 的 dist/repo，请在 catalog 工程中运行');
+    }
     const parsed = parseServeArgs(args, project.root);
     serve(parsed.dir, parsed.host);
-  } else {
-    usage();
-    process.exitCode = 1;
+    return;
   }
+  usage();
+  process.exitCode = 1;
 }
 
 main().catch((err: unknown) => {

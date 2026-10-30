@@ -11,6 +11,20 @@ export interface Project {
   pluginKey?: string;
 }
 
+// 显式路径优先。没写路径时，当前目录落在某个插件里就只用该插件。空数组表示整个 catalog。
+export function pluginArgs(project: Project, args: string[]): string[] {
+  if (project.kind === 'plugin') {
+    if (args.length > 0) {
+      throw new Error('独立插件目录不接受插件路径');
+    }
+    return [];
+  }
+  if (args.length > 0) {
+    return args;
+  }
+  return project.pluginKey === undefined ? [] : [project.pluginKey];
+}
+
 function readName(dir: string): string {
   const file = path.join(dir, 'package.json');
   if (!existsSync(file)) {
