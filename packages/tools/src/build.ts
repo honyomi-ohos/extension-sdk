@@ -83,7 +83,7 @@ export function pluginMainJs(pluginDir: string): string {
   return path.join(pluginDir, 'dist', 'main.js');
 }
 
-const PLUGIN_DIR_KEY = /^(?:src\/)?[A-Za-z0-9_-]+(?:\/[a-z0-9_]+)?$/;
+const PLUGIN_DIR_KEY = /^(?:src\/)?[A-Za-z0-9_-]+(?:\/[A-Za-z0-9_-]+)?$/;
 
 // 接受 src/zh/example、zh/example，以及语言目录 zh / src/zh。
 export function normalizeKey(key: string): string {

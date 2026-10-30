@@ -18,6 +18,10 @@ catalog/<lang>/<id>/ main.ts（插件主体）、manifest.json、test/<id>.test.
 插件运行在 JSVM 沙箱，**能力边界**（TS 编写，无 DOM/fetch/Node API）：
 
 - `$.http.get/post/request/getBytes`；`request` 返回 `{ok,status,statusText,headers,body,url}`
+- `$.http.setRateLimit(permits, periodSeconds=1)`：源级限流令牌桶（permits 1..1000 整数，
+  period (0,3600] 秒）；宿主在后续 HTTP 派发前阻塞获取（等价 Kotlin RateLimitInterceptor），
+  桶状态按插件 key 持久（引擎重建后仍生效）。模板源迁移时对齐原插件的限流配置
+  （如 Madara 默认 5/s、MangaThemesia 3~4 permits）
 - `$.html(html, baseUrl)` → DocNode（select/selectFirst/text/attr/ownText）
 - `$.crypto.sha256`（hex）；`$.prefs.get/set`；`URL` 为全局
 - 导出 `const ext: SourceExtension = {...}` 并 `defineExt(ext)`

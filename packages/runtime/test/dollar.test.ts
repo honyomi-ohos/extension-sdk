@@ -21,7 +21,8 @@ interface LoadedShim {
 }
 
 function loadShim(response?: Record<string, unknown>,
-  hostCall?: (kind: string, payloadJson: string) => string): LoadedShim {
+  hostCall?: (kind: string, payloadJson: string) => string,
+  rateLimitBridge?: (permits: number, periodMs: number) => string): LoadedShim {
   const calls: BytesCall[] = [];
   const sandboxGlobal: Record<string, unknown> = {
     fetch: (url: string, options?: Record<string, unknown>): object => {
@@ -49,6 +50,9 @@ function loadShim(response?: Record<string, unknown>,
   };
   if (hostCall !== undefined) {
     sandboxGlobal.__nativeHostCall = hostCall;
+  }
+  if (rateLimitBridge !== undefined) {
+    sandboxGlobal.__nativeRateLimitSet = rateLimitBridge;
   }
   const ctx = vm.createContext(sandboxGlobal);
   vm.runInContext(SHIM_SRC, ctx, { filename: 'plugin_runtime_jsvm.js' });
@@ -281,4 +285,43 @@ test('$.image：尺寸/缓冲不匹配与桥缺失本地拒绝', () => {
   const { ctx: noBridge } = loadShim();
   assert.throws(() => vm.runInContext(`$.image.decode(new Uint8Array([1]))`, noBridge),
     /host call bridge not available/);
+});
+
+test('$.http.setRateLimit：配置转发到限流桥（permits/periodMs 归一）', () => {
+  const seen: Array<[number, number]> = [];
+  const { ctx } = loadShim(undefined, undefined, (permits, periodMs) => {
+    seen.push([permits, periodMs]);
+    return '{}';
+  });
+  vm.runInContext(`$.http.setRateLimit(5)`, ctx);
+  vm.runInContext(`$.http.setRateLimit(3, 0.5)`, ctx);
+  vm.runInContext(`$.http.setRateLimit(1, 3600)`, ctx);
+  assert.deepEqual(seen, [[5, 1000], [3, 500], [1, 3600000]]);
+});
+
+test('$.http.setRateLimit：非法 permits/period 本地拒绝', () => {
+  const { ctx } = loadShim(undefined, undefined, () => '{}');
+  for (const bad of ['0', '1001', '1.5', 'NaN', '-1']) {
+    assert.throws(() => vm.runInContext(`$.http.setRateLimit(${bad})`, ctx),
+      /invalid rate limit permits/, `permits=${bad}`);
+  }
+  for (const bad of ['0', '-1', '3601', 'NaN', 'Infinity']) {
+    assert.throws(() => vm.runInContext(`$.http.setRateLimit(5, ${bad})`, ctx),
+      /invalid rate limit period/, `period=${bad}`);
+  }
+});
+
+test('$.http.setRateLimit：桥缺失与宿主错误信封转异常', () => {
+  const { ctx } = loadShim();
+  assert.throws(() => vm.runInContext(`$.http.setRateLimit(5)`, ctx),
+    /rate limit bridge not available/);
+  const { ctx: rejected } = loadShim(undefined, undefined, () => '{"error":"invalid rate limit config"}');
+  assert.throws(() => vm.runInContext(`$.http.setRateLimit(5)`, rejected), /invalid rate limit config/);
+  const { ctx: badJson } = loadShim(undefined, undefined, () => 'not-json');
+  assert.throws(() => vm.runInContext(`$.http.setRateLimit(5)`, badJson),
+    /rate limit bridge result parse failed/);
+  const { ctx: threw } = loadShim(undefined, undefined, () => {
+    throw new Error('boom');
+  });
+  assert.throws(() => vm.runInContext(`$.http.setRateLimit(5)`, threw), /rate limit set failed/);
 });

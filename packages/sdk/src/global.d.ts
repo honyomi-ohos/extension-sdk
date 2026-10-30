@@ -11,3 +11,9 @@ declare var $: import('./types.ts').DollarDsl;
 
 declare var fetchBytes: (url: string, options?: import('./types.ts').HttpRequestOptions) =>
 import('./types.ts').FetchBytesResult;
+
+// 宿主 shim 注入的 WebCrypto 子集（getRandomValues 走原生随机桥，长度上限 65536）。
+// 哈希/加密算法请用 $.crypto（同源实现，含 subtle 等价 API）。
+declare var crypto: {
+  getRandomValues(array: Uint8Array): Uint8Array;
+};

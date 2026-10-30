@@ -177,6 +177,12 @@ export interface HostGlobal {
   // C++ 侧 libohcrypto 硬件熵随机桥（crypto.getRandomValues 后端）；
   // 沙箱由 sandbox.ts 注入 node:crypto 实现，裸 vm 不注入（Math.random 兜底）
   __nativeRandomBytes?: (n: number) => Uint8Array;
+
+  // C++ 侧限流桥（__nativeRateLimitSet）：按插件 key 配置令牌桶
+  // （容量 permits，按 permits/periodMs 连续补充）；宿主在 fetch/fetchBytes
+  // 派发前阻塞获取令牌（Kotlin RateLimitInterceptor 阻塞语义）。
+  // 沙箱由 sandbox.ts 注入 mock 实现并记录调用
+  __nativeRateLimitSet?: (permits: number, periodMs: number) => string;
   __PREFS_STORE__?: Record<string, string>;
   atob?: (s: string) => string;
   btoa?: (s: string) => string;
@@ -207,6 +213,7 @@ export const natives: {
   randomBytes?: (n: number) => Uint8Array;
   dnsSet?: (host: string, ipsJson: string) => string;
   hostCall?: (kind: string, payloadJson: string) => string;
+  rateLimitSet?: (permits: number, periodMs: number) => string;
 } = {
   fetch: g.fetch,
   fetchBytes: g.fetchBytes,
@@ -214,6 +221,7 @@ export const natives: {
   randomBytes: g.__nativeRandomBytes,
   dnsSet: g.__nativeDnsSet,
   hostCall: g.__nativeHostCall,
+  rateLimitSet: g.__nativeRateLimitSet,
 };
 
 // CJS 约定与 global 兜底（设备 bootstrap 已设，沙箱/其它嵌入方未设时补齐）
@@ -224,6 +232,7 @@ export function captureHost(host: HostGlobal): void {
   natives.randomBytes = host.__nativeRandomBytes;
   natives.dnsSet = host.__nativeDnsSet;
   natives.hostCall = host.__nativeHostCall;
+  natives.rateLimitSet = host.__nativeRateLimitSet;
   if (typeof host.global === 'undefined') {
     host.global = host;
   }

@@ -323,6 +323,42 @@ export function installDollar(g: HostGlobal): void {
           /* fire-and-forget */
         }
       },
+      // 源级限流：为当前插件配置令牌桶（容量 permits，按 permits/periodMs
+      // 连续补充），宿主在后续 $.http.* / fetchBytes 派发前阻塞获取令牌
+      // （等价 Kotlin RateLimitInterceptor(permits, period, SECONDS)）。
+      // 桶状态按插件 key 持久（引擎销毁重建后仍生效）。
+      setRateLimit: (permits: number, periodSeconds?: number): void => {
+        const n = Number(permits);
+        if (!Number.isFinite(n) || !Number.isInteger(n) || n < 1 || n > 1000) {
+          throw new Error(`invalid rate limit permits: ${String(permits)}`);
+        }
+        const period = Number(periodSeconds ?? 1);
+        if (!Number.isFinite(period) || period <= 0 || period > 3600) {
+          throw new Error(`invalid rate limit period: ${String(periodSeconds)}`);
+        }
+        const bridge = natives.rateLimitSet;
+        if (bridge === undefined) {
+          throw new Error('rate limit bridge not available');
+        }
+        let raw: string;
+        try {
+          raw = bridge(n, period * 1000);
+        } catch (e) {
+          throw new Error(`rate limit set failed: ${String(e)}`);
+        }
+        let parsed: { error?: string };
+        try {
+          parsed = JSON.parse(raw) as { error?: string };
+        } catch {
+          throw new Error('rate limit bridge result parse failed');
+        }
+        if (parsed === null || typeof parsed !== 'object') {
+          throw new Error('rate limit bridge result parse failed');
+        }
+        if (parsed.error) {
+          throw new Error(String(parsed.error));
+        }
+      },
       getBytes: (url: string, headers?: Record<string, string>,
         options?: { method?: string; body?: string }): Uint8Array => {
         return httpBytesRequest(url, headers, options).bytes;

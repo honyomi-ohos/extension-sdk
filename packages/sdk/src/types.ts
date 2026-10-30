@@ -80,6 +80,14 @@ export interface HttpBridge {
   /** 同 getBytes，但保留完整响应信封（状态码/头/最终 URL），供插件按 status 分支处理 */
   getBytesResponse(url: string, headers?: Record<string, string>,
     options?: BytesRequestOptions): FetchBytesResult;
+
+  /**
+   * 源级限流：为当前插件配置令牌桶（容量 permits，按 permits/periodSeconds
+   * 连续补充），宿主在后续 HTTP 派发前阻塞获取令牌（等价 Kotlin
+   * RateLimitInterceptor）。桶状态按插件 key 持久（引擎重建后仍生效）。
+   * permits 为 1..1000 整数；periodSeconds 默认 1，范围 (0, 3600]。
+   */
+  setRateLimit(permits: number, periodSeconds?: number): void;
 }
 
 export interface CryptoBridge {

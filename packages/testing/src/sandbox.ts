@@ -46,6 +46,12 @@ export interface HostCallCall {
   payload: string;
 }
 
+// $.http.setRateLimit 调用记录（归一后的配置）
+export interface RateLimitCall {
+  permits: number;
+  periodMs: number;
+}
+
 export interface LoadOptions {
   // 插件目录（含 manifest.json；TS 插件的构建产物在 dist/，见 mainJs 解析）
   pluginDir: string;
@@ -82,6 +88,14 @@ export interface LoadedPlugin {
 
   // __nativeHostCall 调用记录（按发生顺序；cookie 存取 + 图像编解码均记录）
   hostCalls: HostCallCall[];
+
+  // $.http.setRateLimit 调用记录（按发生顺序）；live 模式下同时生效限流
+  rateLimitCalls: RateLimitCall[];
+
+  // 测试种子：向沙箱内存 CookieJar 写入一条 cookie（域后缀匹配语义同 mock）。
+  // 与插件运行期 $.cookies.set 不同，不记录 hostCalls —— 用于预置会话状态
+  // （如 madaradex 的 mdx_fp/mdx_auth 认证 cookie）。
+  setCookie: (url: string, name: string, value: string) => void;
 }
 
 function resolveDefaultShim(): string {
@@ -654,11 +668,34 @@ export function loadExtension(options: LoadOptions): LoadedPlugin {
   const calls: FetchCall[] = [];
   const dnsCalls: DnsCall[] = [];
   const hostCalls: HostCallCall[] = [];
+  const rateLimitCalls: RateLimitCall[] = [];
   const sandboxCookies = new Map<string, Map<string, string>>();
   const fetchImpl = options.fetchImpl ??
     (options.live === true ? liveFetch() : strictFetch());
 
+  // live 模式令牌桶（$.http.setRateLimit 后端）；mock 模式只记录配置不睡眠，
+  // 保持批量测试速度。同步 sleep 用 Atomics.wait（Node 下主线程/worker 均可用）。
+  let liveBucket: { permits: number; periodMs: number; tokens: number; last: number } | null = null;
+  const throttleIfLive = (): void => {
+    if (options.live !== true || liveBucket === null) {
+      return;
+    }
+    const now = Date.now();
+    const elapsed = now - liveBucket.last;
+    if (elapsed > 0) {
+      liveBucket.tokens = Math.min(liveBucket.permits,
+        liveBucket.tokens + elapsed * liveBucket.permits / liveBucket.periodMs);
+      liveBucket.last = now;
+    }
+    if (liveBucket.tokens < 1) {
+      const waitMs = Math.ceil((1 - liveBucket.tokens) * liveBucket.periodMs / liveBucket.permits);
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, waitMs);
+    }
+    liveBucket.tokens -= 1;
+  };
+
   const fetchFn = (url: string, options?: HttpRequestOptions): object => {
+    throttleIfLive();
     const opts = options ?? {};
     calls.push({
       url,
@@ -681,6 +718,7 @@ export function loadExtension(options: LoadOptions): LoadedPlugin {
   };
 
   const fetchBytesFn = (url: string, options?: HttpRequestOptions): object => {
+    throttleIfLive();
     const opts = options ?? {};
     calls.push({
       url,
@@ -740,6 +778,19 @@ export function loadExtension(options: LoadOptions): LoadedPlugin {
     // 通用宿主调用桥 mock：cookie 存取（内存 jar）+ 图像像素编解码
     // （纯 JS PNG）；全部调用记录进 hostCalls 供断言
     __nativeHostCall: makeHostCallMock(sandboxCookies, hostCalls),
+    // 限流桥 mock：记录配置（设备端为原生令牌桶，fetch 派发前阻塞获取）；
+    // 校验失败返回 error 信封，与 C++ NativeRateLimitSet 一致
+    __nativeRateLimitSet: (permits: number, periodMs: number): string => {
+      const p = Math.floor(Number(permits));
+      const ms = Number(periodMs);
+      if (!Number.isFinite(p) || p < 1 || p > 1000 ||
+        !Number.isFinite(ms) || ms <= 0 || ms > 3600000) {
+        return JSON.stringify({ error: 'invalid rate limit config' });
+      }
+      rateLimitCalls.push({ permits: p, periodMs: ms });
+      liveBucket = { permits: p, periodMs: ms, tokens: p, last: Date.now() };
+      return '{}';
+    },
   };
   const context = vm.createContext(sandboxGlobal);
 
@@ -762,5 +813,24 @@ export function loadExtension(options: LoadOptions): LoadedPlugin {
     calls,
     dnsCalls,
     hostCalls,
+    rateLimitCalls,
+    setCookie: (url: string, name: string, value: string): void => {
+      const u = String(url);
+      if (u.indexOf('https://') !== 0 && u.indexOf('http://') !== 0) {
+        throw new Error(`仅支持 http/https 地址: ${u}`);
+      }
+      const host = sandboxHostOf(u);
+      const n = String(name);
+      const v = String(value);
+      if (host === '' || n === '' || /[\r\n\0;,=]/.test(n) || /[\r\n\0]/.test(v)) {
+        throw new Error('invalid seed cookie');
+      }
+      let entries = sandboxCookies.get(host);
+      if (entries === undefined) {
+        entries = new Map<string, string>();
+        sandboxCookies.set(host, entries);
+      }
+      entries.set(n, v);
+    },
   };
 }

@@ -94,3 +94,23 @@ test('sandbox host-call mock: 内存 cookie jar + PNG 像素往返', () => {
   assert.equal(plugin.hostCalls[5].kind, 'imageEncodePng');
   assert.equal(plugin.hostCalls[6].kind, 'imageDecode');
 });
+
+test('setCookie 种子先于插件可见（不记录 hostCalls）', () => {
+  const plugin = loadExtension({ pluginDir: toyDir });
+  plugin.setCookie('https://a.example/', 'seeded', 'yes');
+  const toyExtra = plugin.ext as unknown as {
+    cookieGet(url: string, name: string): string;
+    cookieHeader(url: string): string;
+  };
+  // 域后缀匹配语义同 mock cookieSet（宿主 CookieJar 一致）
+  assert.equal(toyExtra.cookieGet('https://a.example/', 'seeded'), 'yes');
+  assert.equal(toyExtra.cookieGet('https://sub.a.example/', 'seeded'), 'yes');
+  assert.equal(toyExtra.cookieGet('https://other.example/', 'seeded'), '');
+  assert.equal(toyExtra.cookieHeader('https://a.example/'), 'seeded=yes');
+  // 种子不产生 hostCall 记录（区别于插件运行期 $.cookies.set）
+  assert.equal(plugin.hostCalls.length, 4);
+  assert.ok(plugin.hostCalls.every((c) => c.kind === 'cookieGet' || c.kind === 'cookieHeader'));
+  // 非法输入拒绝
+  assert.throws(() => plugin.setCookie('ftp://a.example/', 'x', 'v'), /仅支持 http\/https/);
+  assert.throws(() => plugin.setCookie('https://a.example/', 'bad;name', 'v'), /invalid seed cookie/);
+});

@@ -428,12 +428,32 @@ function attachListApi(list: WrappedNode[]): WrappedList {
 
 export function jsoupSelect(html: string, selector: string, baseUrl: string): WrappedList {
   const parts = splitCommaSelectors(String(selector || ''));
-  const out: WrappedNode[] = [];
+  const tokenized: SelectorToken[][] = [];
   for (const part of parts) {
     const tokens = tokenizeSelector(part);
-    if (tokens.length === 0) {
-      continue;
+    if (tokens.length > 0) {
+      tokenized.push(tokens);
     }
+  }
+  // jsoup 逗号语义 = 文档序去重并集。纯 CSS 段（无 :contains/:eq 等 jsoup 伪类）
+  // 合并为单次 native 调用：lexbor/linkedom 单趟遍历天然按文档序返回，同一元素
+  // 命中多段时由 native/宿主侧去重，避免 JS 按段拼接造成的段序错乱与跨段重复。
+  // 纯段中 matchesChain 恒真（chainNeedsJsoup 短路），语义完全由 native css 承载。
+  if (tokenized.length > 0 && tokenized.every((tokens) => !chainNeedsJsoup(tokens))) {
+    const css = tokenized.map((tokens) => nativeCssFromTokens(tokens)).join(', ');
+    try {
+      const hits = g.querySelectorAll(String(html), css) || [];
+      const merged: WrappedNode[] = [];
+      for (const hit of hits) {
+        merged.push(wrapNode(hit, html, baseUrl, false));
+      }
+      return attachListApi(merged);
+    } catch {
+      // native 桥拒绝合并选择器（如不支持的选择器列表语法）时退回逐段路径
+    }
+  }
+  const out: WrappedNode[] = [];
+  for (const tokens of tokenized) {
     const css = nativeCssFromTokens(tokens);
     let hits: RawHit[] = [];
     try {
