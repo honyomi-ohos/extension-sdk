@@ -35,6 +35,26 @@ function resolveMainJs(root: string, dir: string): string {
   return distMainJs(root, outputKey(root, dir));
 }
 
+function mergeSkipped(first: SkippedPlugin[], second: SkippedPlugin[]): SkippedPlugin[] {
+  const order: string[] = [];
+  const reasons = new Map<string, string[]>();
+  for (const item of [...first, ...second]) {
+    const list = reasons.get(item.plugin);
+    if (list === undefined) {
+      order.push(item.plugin);
+      reasons.set(item.plugin, [item.reason]);
+      continue;
+    }
+    if (!list.includes(item.reason)) {
+      list.push(item.reason);
+    }
+  }
+  return order.map((plugin) => ({
+    plugin,
+    reason: reasons.get(plugin)?.join('；') ?? '',
+  }));
+}
+
 function skipReason(errors: string[], label: string): string {
   const prefix = `${label}: `;
   return errors.map((error) => error.startsWith(prefix) ? error.slice(prefix.length) : error).join('；');
@@ -108,6 +128,8 @@ export interface PublishOptions {
   // GitHub Release 下载前缀。设置后 index.bin 里的插件包和图标都写成该前缀下的绝对地址，
   // 应用把仓库地址设为 <前缀>/index.bin 后，索引、插件包、图标都从这次 Release 的附件获取。
   releaseBase?: string;
+  // 编译失败的插件。即使 dist 里还有旧产物也不打包，结束时和其它跳过项一起列出。
+  failedBuilds?: SkippedPlugin[];
 }
 
 // https://github.com/<owner>/<repo>/releases/download/<tag>
@@ -162,7 +184,10 @@ export function publish(root: string, options: PublishOptions = {}): number {
   }
 
   const collected = collect(root);
-  const skipped = [...collected.skipped];
+  const failedBuilds = options.failedBuilds ?? [];
+  const failedPlugins = new Set(failedBuilds.map((item) => item.plugin));
+  collected.items = collected.items.filter((item) => !failedPlugins.has(pluginRel(root, item.dir)));
+  const skipped = mergeSkipped(failedBuilds, collected.skipped);
   // 二次校验失败的插件同样跳过，留到结尾和前面的跳过项一起通知。
   const validItems: PublishItem[] = [];
   for (const result of validateAll(collected.items)) {

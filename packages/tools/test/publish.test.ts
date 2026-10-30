@@ -10,6 +10,7 @@ import {
   decodeRepoIndex,
   looksLikeRepoProto,
 } from '@honyomi/plugin-sdk/repo';
+import { buildPlugins } from '../src/build.ts';
 import { collect, normalizeReleaseBase, publish } from '../src/publish.ts';
 
 function writePlugin(root: string, dirName: string, manifestText: string): void {
@@ -158,6 +159,40 @@ test('publish skips incomplete plugins and lists them after the summary', () => 
     const bytes = new Uint8Array(readFileSync(path.join(root, 'dist', 'repo', REPO_INDEX_FILENAME)));
     assert.equal(decodeRepoIndex(bytes).extensions.length, 1);
     assert.equal(decodeRepoIndex(bytes).extensions[0].packageName, GOOD_KEY);
+  } finally {
+    console.log = original;
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('publish skips a plugin that fails to compile and reports it after the summary', async () => {
+  const root = mkdtempSync(path.join(tmpdir(), 'honyomi-pub-'));
+  const logs: string[] = [];
+  const original = console.log;
+  console.log = (...args: unknown[]) => {
+    logs.push(args.map((arg) => String(arg)).join(' '));
+  };
+  try {
+    writePlugin(root, 'goodplug', validManifest(GOOD_KEY));
+    writePlugin(root, 'badcompile', validManifest('33333333-3333-4333-8333-333333333333'));
+    writeFileSync(path.join(root, 'badcompile', 'main.ts'), 'export const broken = ;\n');
+    await assert.rejects(() => buildPlugins(root, ['badcompile']));
+    const built = await buildPlugins(root, [], { continueOnError: true });
+    assert.equal(built.failed.length, 1);
+    assert.equal(built.failed[0].plugin, 'badcompile');
+    assert.match(built.failed[0].reason, /编译失败/);
+    const published = publish(root, { failedBuilds: built.failed });
+    assert.equal(published, 1);
+    const text = logs.join('\n');
+    const summaryAt = text.indexOf('"published": 1');
+    const noticeAt = text.indexOf('跳过 1 个插件：');
+    assert.ok(summaryAt !== -1);
+    assert.ok(noticeAt > summaryAt);
+    assert.match(text, /badcompile: 编译失败/);
+    const bytes = new Uint8Array(readFileSync(path.join(root, 'dist', 'repo', REPO_INDEX_FILENAME)));
+    const store = decodeRepoIndex(bytes);
+    assert.equal(store.extensions.length, 1);
+    assert.equal(store.extensions[0].packageName, GOOD_KEY);
   } finally {
     console.log = original;
     rmSync(root, { recursive: true, force: true });

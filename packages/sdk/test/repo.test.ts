@@ -32,6 +32,7 @@ function sampleStore(): RepoIndexStore {
     // repeated 字段：多类型 + 顺序保持
     contentTypes: ['video', 'manga'],
     checksum: 'a'.repeat(64),
+    acgn: true,
   };
   return {
     name: '示例仓库',
@@ -107,4 +108,14 @@ test('omitted contentTypes decode to [manga]', () => {
   store.extensions[0].contentTypes = [];
   const decoded = decodeRepoIndex(encodeRepoIndex(store));
   assert.deepEqual(decoded.extensions[0].contentTypes, ['manga']);
+});
+
+test('acgn flag round-trips and defaults to false', () => {
+  const store = sampleStore();
+  store.extensions[0].acgn = true;
+  let decoded = decodeRepoIndex(encodeRepoIndex(store));
+  assert.equal(decoded.extensions[0].acgn, true);
+  store.extensions[0].acgn = false;
+  decoded = decodeRepoIndex(encodeRepoIndex(store));
+  assert.equal(decoded.extensions[0].acgn, false);
 });

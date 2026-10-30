@@ -229,8 +229,8 @@ async function main(): Promise<void> {
   if (cmd === 'publish') {
     // 始终发布整个 catalog。插件路径会在这里被拒绝，不会先去构建。
     const options = parsePublishArgs(args);
-    await buildPlugins(project.root, []);
-    publish(project.root, options);
+    const built = await buildPlugins(project.root, [], { continueOnError: true });
+    publish(project.root, { ...options, failedBuilds: built.failed });
     return;
   }
   if (cmd === 'serve') {

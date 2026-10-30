@@ -130,17 +130,53 @@ export function matchPluginDirs(root: string, keys: string[]): string[] {
   return dirs;
 }
 
-export async function buildPlugins(root: string, keys: string[]): Promise<number> {
+export interface BuildFailure {
+  plugin: string;
+  reason: string;
+}
+
+export interface BuildPluginsResult {
+  built: number;
+  failed: BuildFailure[];
+}
+
+export interface BuildPluginsOptions {
+  // publish 用：单个插件编译失败时继续，错误交给调用方在结束时汇总。
+  continueOnError?: boolean;
+}
+
+function compileReason(err: unknown): string {
+  const text = err instanceof Error ? err.message : String(err);
+  const details = text.split('\n').map((line) => line.trim()).filter((line) => line.includes('ERROR'));
+  const detail = details.length > 0 ? details.join('；') : text.trim().split('\n')[0] ?? text.trim();
+  return `编译失败 ${detail}`;
+}
+
+export async function buildPlugins(
+  root: string,
+  keys: string[],
+  options?: BuildPluginsOptions,
+): Promise<BuildPluginsResult> {
   const dirs = matchPluginDirs(root, keys);
+  const failed: BuildFailure[] = [];
+  let built = 0;
   for (const dir of dirs) {
     const key = outputKey(root, dir);
-    await buildPlugin(dir, distMainJs(root, key), root);
-    console.log(`built dist/${key}/main.js`);
+    try {
+      await buildPlugin(dir, distMainJs(root, key), root);
+      console.log(`built dist/${key}/main.js`);
+      built++;
+    } catch (err) {
+      if (options?.continueOnError !== true) {
+        throw err;
+      }
+      failed.push({ plugin: pluginRel(root, dir), reason: compileReason(err) });
+    }
   }
   if (dirs.length === 0) {
     console.log('no plugins to build');
   }
-  return dirs.length;
+  return { built, failed };
 }
 
 export async function buildPlugin(dir: string, outfile: string, absWorkingDir = dir): Promise<void> {
